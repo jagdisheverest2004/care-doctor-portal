@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   FiHome,
   FiUsers,
+  FiCalendar,
   FiFilter,
   FiAlertCircle,
   FiTrendingUp,
@@ -34,6 +35,12 @@ function Sidebar({ onLogout }) {
           className={`menu-item ${isActive("/patients") ? "active" : ""}`}
         >
           <FiUsers /> Patients
+        </Link>
+        <Link
+          to="/appointments"
+          className={`menu-item ${isActive("/appointments") ? "active" : ""}`}
+        >
+          <FiCalendar /> Appointments
         </Link>
         <Link
           to="/prescription"

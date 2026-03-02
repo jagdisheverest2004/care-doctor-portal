@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { FiToggleRight, FiToggleLeft, FiLock, FiBell, FiUser } from "react-icons/fi";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../services/api";
 
 function SettingsPage() {
   const [settings, setSettings] = useState({
@@ -16,6 +17,47 @@ function SettingsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const [profile, setProfile] = useState({
+    name: "",
+    specialization: "",
+    contactInfo: "",
+    hospitalName: "",
+  });
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState("");
+
+  const [newDrug, setNewDrug] = useState({
+    drugName: "",
+    generalDescription: "",
+  });
+  const [savingDrug, setSavingDrug] = useState(false);
+  const [drugMessage, setDrugMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoadingProfile(true);
+      setError("");
+
+      try {
+        const data = await api.doctor.getProfile();
+        setProfile({
+          name: data?.name || "",
+          specialization: data?.specialization || "",
+          contactInfo: data?.contactInfo || "",
+          hospitalName: data?.hospitalName || "",
+        });
+      } catch (apiError) {
+        setError(apiError?.message || "Failed to load doctor profile.");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   const handleToggle = (key) => {
     setSettings((prev) => ({
@@ -33,6 +75,42 @@ function SettingsPage() {
     setFormData({ currentPassword: "", newPassword: "", confirmPassword: "" });
   };
 
+  const handleProfileUpdate = async () => {
+    setSavingProfile(true);
+    setError("");
+    setProfileMessage("");
+
+    try {
+      const data = await api.doctor.updateProfile(profile);
+      setProfileMessage(data?.message || "Doctor profile updated successfully.");
+    } catch (apiError) {
+      setError(apiError?.message || "Unable to update profile.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleAddDrug = async () => {
+    if (!newDrug.drugName || !newDrug.generalDescription) {
+      setError("Please enter both drug name and general description.");
+      return;
+    }
+
+    setSavingDrug(true);
+    setError("");
+    setDrugMessage("");
+
+    try {
+      const response = await api.drugs.add(newDrug);
+      setDrugMessage(response?.message || `Drug ${newDrug.drugName} added successfully.`);
+      setNewDrug({ drugName: "", generalDescription: "" });
+    } catch (apiError) {
+      setError(apiError?.message || "Unable to add drug.");
+    } finally {
+      setSavingDrug(false);
+    }
+  };
+
   return (
     <>
       <motion.div
@@ -44,6 +122,10 @@ function SettingsPage() {
         <p style={{ color: "#6b7280", marginTop: "8px" }}>
           Manage your account and preferences
         </p>
+
+        {error && <div className="alert alert-danger" style={{ marginTop: "12px" }}>{error}</div>}
+        {profileMessage && <div className="alert alert-success" style={{ marginTop: "12px" }}>{profileMessage}</div>}
+        {drugMessage && <div className="alert alert-success" style={{ marginTop: "12px" }}>{drugMessage}</div>}
       </motion.div>
 
       {/* PROFILE SECTION */}
@@ -57,13 +139,79 @@ function SettingsPage() {
           <FiUser size={32} />
           <div>
             <h3 className="card-title" style={{ margin: 0 }}>
-              Dr. Kailash Kumar
+              {loadingProfile ? "Loading..." : `Dr. ${profile.name || "Doctor"}`}
             </h3>
             <p style={{ color: "#6b7280", margin: "4px 0 0 0" }}>
-              Medical License: MED-2024-001 | Verified ✓
+              {profile.specialization || "General"} | {profile.hospitalName || "Hospital"}
             </p>
           </div>
         </div>
+
+        <div className="grid-2" style={{ marginTop: "18px" }}>
+          <div className="form-group">
+            <label>Name</label>
+            <input
+              value={profile.name}
+              onChange={(event) => setProfile((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label>Specialization</label>
+            <input
+              value={profile.specialization}
+              onChange={(event) => setProfile((prev) => ({ ...prev, specialization: event.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label>Contact Info</label>
+            <input
+              value={profile.contactInfo}
+              onChange={(event) => setProfile((prev) => ({ ...prev, contactInfo: event.target.value }))}
+            />
+          </div>
+          <div className="form-group">
+            <label>Hospital Name</label>
+            <input
+              value={profile.hospitalName}
+              onChange={(event) => setProfile((prev) => ({ ...prev, hospitalName: event.target.value }))}
+            />
+          </div>
+        </div>
+
+        <button className="btn btn-primary" onClick={handleProfileUpdate} disabled={savingProfile}>
+          {savingProfile ? "Saving..." : "Update Profile"}
+        </button>
+      </motion.div>
+
+      <motion.div
+        className="card"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+      >
+        <h3 className="card-title">Add New Drug</h3>
+        <p style={{ color: "#6b7280", marginBottom: "16px" }}>Create drug entries used in consultation safety checks.</p>
+
+        <div className="form-group">
+          <label>Drug Name</label>
+          <input
+            value={newDrug.drugName}
+            onChange={(event) => setNewDrug((prev) => ({ ...prev, drugName: event.target.value }))}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>General Description</label>
+          <textarea
+            rows={4}
+            value={newDrug.generalDescription}
+            onChange={(event) => setNewDrug((prev) => ({ ...prev, generalDescription: event.target.value }))}
+          />
+        </div>
+
+        <button className="btn btn-primary" onClick={handleAddDrug} disabled={savingDrug}>
+          {savingDrug ? "Adding..." : "Add Drug"}
+        </button>
       </motion.div>
 
       {/* SECURITY SETTINGS */}
@@ -250,7 +398,7 @@ function SettingsPage() {
         <div className="alert alert-info" style={{ marginTop: "20px" }}>
           <strong>ℹ️ Privacy Policy</strong>
           <p style={{ margin: "8px 0 0 0", fontSize: "12px" }}>
-            Your data is always encrypted and protected according to HIPAA standards. <a href="#" style={{ color: "#2563eb" }}>Learn more</a>
+            Your data is always encrypted and protected according to HIPAA standards. <button type="button" style={{ color: "#2563eb", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}>Learn more</button>
           </p>
         </div>
       </motion.div>

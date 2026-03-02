@@ -1,39 +1,111 @@
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FiUsers, FiAlertCircle, FiCalendar, FiTrendingUp } from "react-icons/fi";
-import { getRecentPatients, getHighRiskPatients, getAlerts } from "../data/mockData";
+import { getAlerts } from "../data/mockData";
+import { api } from "../services/api";
+
+function getBadgeClass(value) {
+  const normalized = String(value || "").toUpperCase();
+  if (["CRITICAL", "HIGH", "CANCELLED"].includes(normalized)) return "danger";
+  if (["MEDIUM", "SCHEDULED"].includes(normalized)) return "warning";
+  if (["COMPLETED"].includes(normalized)) return "success";
+  return "info";
+}
 
 function Dashboard() {
-  const recentPatients = getRecentPatients();
-  const highRiskPatients = getHighRiskPatients();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const alerts = getAlerts();
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await api.doctor.getProfile();
+        setProfile(data);
+      } catch (apiError) {
+        setError(apiError?.message || "Failed to load dashboard data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const appointments = useMemo(() => profile?.appointments || [], [profile]);
+  const consultations = useMemo(() => profile?.consultations || [], [profile]);
+
+  const criticalPatientsCount = useMemo(() => {
+    const highRiskConsultations = consultations.filter((consultation) => {
+      const level = consultation?.riskLevel?.toUpperCase();
+      return level === "HIGH" || level === "CRITICAL";
+    });
+    const uniquePatientIds = new Set(highRiskConsultations.map((item) => item.patientId));
+    return uniquePatientIds.size;
+  }, [consultations]);
+
+  const recentPatients = useMemo(() => {
+    const rows = [];
+
+    appointments.forEach((item) => {
+      rows.push({
+        id: `appt-${item.appointmentId}`,
+        patientId: item.patientId,
+        name: item.patientName,
+        age: "--",
+        bloodGroup: "--",
+        lastVisit: item.appointmentDateTime,
+        riskLevel: item.appointmentStatus || "SCHEDULED",
+      });
+    });
+
+    consultations.forEach((item) => {
+      rows.push({
+        id: `consult-${item.consultationId}`,
+        patientId: item.patientId,
+        name: item.patientName,
+        age: "--",
+        bloodGroup: "--",
+        lastVisit: item.visitedAt,
+        riskLevel: item.riskLevel || "MEDIUM",
+      });
+    });
+
+    return rows
+      .sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime())
+      .slice(0, 8);
+  }, [appointments, consultations]);
 
   const statsData = [
     {
       icon: <FiUsers />,
-      label: "Active Patients",
-      value: "152",
-      change: "+12",
+      label: "Critical Patients",
+      value: String(criticalPatientsCount),
+      change: "Live",
       color: "info",
     },
     {
       icon: <FiAlertCircle />,
-      label: "AI Alerts",
-      value: "8",
-      change: "+2",
+      label: "Consultations",
+      value: String(consultations.length),
+      change: "Updated",
       color: "warning",
     },
     {
       icon: <FiCalendar />,
-      label: "Today's Appointments",
-      value: "12",
-      change: "+3",
+      label: "Appointments",
+      value: String(appointments.length),
+      change: "Live",
       color: "success",
     },
     {
       icon: <FiTrendingUp />,
-      label: "High-Risk Patients",
-      value: highRiskPatients.length.toString(),
-      change: "Critical",
+      label: "Doctor Specialization",
+      value: profile?.specialization || "--",
+      change: profile?.hospitalName || "Hospital",
       color: "danger",
     },
   ];
@@ -46,11 +118,16 @@ function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          Welcome back, Dr. Kailash 👨‍⚕️
+          Welcome back, Dr. {profile?.name || "Doctor"} 👨‍⚕️
         </motion.h1>
         <p style={{ color: "#6b7280", marginTop: "8px" }}>
           Here's your clinical summary for today
         </p>
+        {error && (
+          <div className="alert alert-danger" style={{ marginTop: "14px" }}>
+            {error}
+          </div>
+        )}
       </div>
 
       {/* STATS GRID */}
@@ -106,14 +183,30 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentPatients.map((patient) => (
+              {loading && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
+                    Loading recent patients...
+                  </td>
+                </tr>
+              )}
+
+              {!loading && recentPatients.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
+                    No patient activity found.
+                  </td>
+                </tr>
+              )}
+
+              {!loading && recentPatients.map((patient) => (
                 <tr key={patient.id}>
                   <td style={{ fontWeight: 500 }}>{patient.name}</td>
-                  <td>{patient.age} yrs</td>
+                  <td>{patient.age === "--" ? "--" : `${patient.age} yrs`}</td>
                   <td>{patient.bloodGroup}</td>
-                  <td>{patient.lastVisit}</td>
+                  <td>{new Date(patient.lastVisit).toLocaleString()}</td>
                   <td>
-                    <span className={`badge badge-${patient.riskLevel.toLowerCase().replace(" ", "-")}`}>
+                    <span className={`badge badge-${getBadgeClass(patient.riskLevel)}`}>
                       {patient.riskLevel}
                     </span>
                   </td>

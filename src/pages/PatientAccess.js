@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { patients } from "../data/mockData";
 import PatientCommandCenter from "./PatientCommandCenter";
+import { api } from "../services/api";
 
 function PatientAccess() {
   const [healthId, setHealthId] = useState("");
@@ -10,15 +10,7 @@ function PatientAccess() {
   const [patient, setPatient] = useState(null);
   const { id } = useParams();
 
-  // Auto-fill if coming with ID parameter
-  useEffect(() => {
-    if (id) {
-      setHealthId(id);
-      handleAccess(id);
-    }
-  }, [id]);
-
-  const handleAccess = (searchId = healthId) => {
+  const handleAccess = useCallback(async (searchId = healthId) => {
     if (!searchId) {
       setError("Please enter a patient ID");
       return;
@@ -27,19 +19,23 @@ function PatientAccess() {
     setError("");
     setIsSearching(true);
 
-    // Simulate API lookup
-    setTimeout(() => {
-      const found = patients.find((p) => p.id === searchId);
+    try {
+      const found = await api.doctor.getPatientById(searchId);
+      setPatient(found);
+      console.log("✓ AUDIT LOG: Accessed patient", found.id, "at", new Date().toISOString());
+    } catch (apiError) {
+      setError(apiError?.message || "❌ Patient not found. Check Patient ID and try again.");
+    } finally {
+      setIsSearching(false);
+    }
+  }, [healthId]);
 
-      if (found) {
-        setPatient(found);
-        console.log("✓ AUDIT LOG: Accessed patient", found.id, "at", new Date().toISOString());
-      } else {
-        setError("❌ Patient not found. Check Health ID and try again.");
-        setIsSearching(false);
-      }
-    }, 800);
-  };
+  useEffect(() => {
+    if (id) {
+      setHealthId(String(id));
+      handleAccess(String(id));
+    }
+  }, [id, handleAccess]);
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
@@ -86,7 +82,7 @@ function PatientAccess() {
             type="text"
             placeholder="e.g., P001, P002, P003..."
             value={healthId}
-            onChange={(e) => setHealthId(e.target.value.toUpperCase())}
+            onChange={(e) => setHealthId(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={isSearching}
             style={{
@@ -110,15 +106,15 @@ function PatientAccess() {
             <p>
               💡 Demo IDs:{" "}
               <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
-                P001
+                1
               </code>
               ,{" "}
               <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
-                P002
+                2
               </code>
               ,{" "}
               <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
-                P003
+                3
               </code>
             </p>
           </div>
@@ -178,7 +174,7 @@ function PatientAccess() {
             color: "#9ca3af",
           }}
         >
-          <p>Testing? Try: <strong>P001</strong> (John Doe - 16 year history)</p>
+          <p>Testing? Try: <strong>2</strong> (patient ID)</p>
         </div>
       </div>
     </div>

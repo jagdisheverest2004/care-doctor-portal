@@ -3,6 +3,8 @@ import { useState } from "react";
 
 function Topbar({ doctorName, onDarkModeToggle, isDarkMode }) {
   const [notificationCount] = useState(3);
+  const displayName = doctorName || "Doctor";
+  const avatarChar = displayName?.charAt(0)?.toUpperCase() || "D";
 
   return (
     <div className="topbar">
@@ -47,11 +49,11 @@ function Topbar({ doctorName, onDarkModeToggle, isDarkMode }) {
             }}
           >
             <span style={{ fontWeight: 600, fontSize: "14px" }}>
-              Dr. {doctorName}
+              Dr. {displayName}
             </span>
             <span style={{ fontSize: "12px", color: "#6b7280" }}>Online</span>
           </div>
-          <div className="doctor-avatar">{doctorName.charAt(0)}</div>
+          <div className="doctor-avatar">{avatarChar}</div>
         </div>
       </div>
     </div>

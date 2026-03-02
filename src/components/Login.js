@@ -1,38 +1,81 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
+import { api } from "../services/api";
 
 function Login({ onLogin }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [registerLoading, setRegisterLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [registerForm, setRegisterForm] = useState({
+    username: "",
+    password: "",
+    email: "",
+    name: "",
+    specialization: "",
+    licenseNumber: "",
+    hospitalName: "",
+    contactInfo: "",
+  });
 
-  // Demo credentials
-  const DEMO_EMAIL = "dr.kailash@careplus.com";
-  const DEMO_PASSWORD = "Demo@2026";
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
 
-    // Validate credentials
-    setTimeout(() => {
-      if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        onLogin();
-      } else {
-        setError("Invalid email or password. Use demo credentials below.");
-      }
+    try {
+      await onLogin({ username, password });
+    } catch (apiError) {
+      setError(apiError?.message || "Invalid username or password.");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
+  };
+
+  const handleRegisterInput = (key, value) => {
+    setRegisterForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleDoctorRegister = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setRegisterLoading(true);
+
+    try {
+      await api.auth.registerDoctor(registerForm);
+      setSuccess("Doctor account created successfully. You can now sign in.");
+      setRegistering(false);
+      setUsername(registerForm.username);
+      setPassword("");
+      setRegisterForm({
+        username: "",
+        password: "",
+        email: "",
+        name: "",
+        specialization: "",
+        licenseNumber: "",
+        hospitalName: "",
+        contactInfo: "",
+      });
+    } catch (apiError) {
+      setError(apiError?.message || "Unable to create doctor account.");
+    } finally {
+      setRegisterLoading(false);
+    }
   };
 
   const fillDemoCredentials = () => {
-    setEmail(DEMO_EMAIL);
-    setPassword(DEMO_PASSWORD);
+    setUsername("jaggie");
+    setPassword("var@0923");
     setError("");
+    setSuccess("");
   };
 
   return (
@@ -89,7 +132,7 @@ function Login({ onLogin }) {
         >
           <h2 style={{ color: "#e5e7eb", marginBottom: "8px" }}>Doctor Login</h2>
           <p style={{ color: "#9ca3af", fontSize: "14px", marginBottom: "30px" }}>
-            Sign in to access patient records
+            Sign in to access patient records and consultations
           </p>
 
           {error && (
@@ -103,10 +146,21 @@ function Login({ onLogin }) {
             </motion.div>
           )}
 
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="alert alert-success"
+              style={{ marginBottom: "20px" }}
+            >
+              {success}
+            </motion.div>
+          )}
+
           <form onSubmit={handleSubmit}>
             {/* EMAIL INPUT */}
             <div className="form-group">
-              <label style={{ color: "#d1d5db" }}>Medical ID or Email</label>
+              <label style={{ color: "#d1d5db" }}>Username</label>
               <div style={{ position: "relative" }}>
                 <FiMail
                   style={{
@@ -118,10 +172,10 @@ function Login({ onLogin }) {
                   }}
                 />
                 <input
-                  type="email"
-                  placeholder="dr.kailash@careplus.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   style={{ paddingLeft: "40px" }}
                   required
                 />
@@ -183,16 +237,20 @@ function Login({ onLogin }) {
                 <input type="checkbox" style={{ cursor: "pointer" }} />
                 Remember me
               </label>
-              <a
-                href="#"
+              <button
+                type="button"
                 style={{
                   color: "#60a5fa",
                   textDecoration: "none",
                   transition: "0.3s",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
                 }}
               >
                 Forgot password?
-              </a>
+              </button>
             </div>
 
             {/* SUBMIT BUTTON */}
@@ -256,10 +314,10 @@ function Login({ onLogin }) {
             </p>
             <div style={{ fontSize: "12px", color: "#cbd5e1", lineHeight: "1.6", fontFamily: "monospace" }}>
               <p style={{ margin: "0 0 6px 0" }}>
-                Email: <span style={{ color: "#60a5fa", fontWeight: 600 }}>dr.kailash@careplus.com</span>
+                Username: <span style={{ color: "#60a5fa", fontWeight: 600 }}>jaggie</span>
               </p>
               <p style={{ margin: "0 0 12px 0" }}>
-                Password: <span style={{ color: "#60a5fa", fontWeight: 600 }}>Demo@2026</span>
+                Password: <span style={{ color: "#60a5fa", fontWeight: 600 }}>var@0923</span>
               </p>
             </div>
             <button
@@ -268,9 +326,110 @@ function Login({ onLogin }) {
               onClick={fillDemoCredentials}
               style={{ width: "100%", justifyContent: "center", fontSize: "12px" }}
             >
-              Auto-Fill Demo Credentials
+              Auto-Fill Quick Login
             </button>
           </div>
+
+          <div style={{ marginTop: "16px" }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={() => {
+                setRegistering((prev) => !prev);
+                setError("");
+                setSuccess("");
+              }}
+            >
+              {registering ? "Cancel Account Creation" : "Create Doctor Account"}
+            </button>
+          </div>
+
+          {registering && (
+            <form onSubmit={handleDoctorRegister} style={{ marginTop: "16px" }}>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Username</label>
+                <input
+                  type="text"
+                  value={registerForm.username}
+                  onChange={(e) => handleRegisterInput("username", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Password</label>
+                <input
+                  type="password"
+                  value={registerForm.password}
+                  onChange={(e) => handleRegisterInput("password", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Email</label>
+                <input
+                  type="email"
+                  value={registerForm.email}
+                  onChange={(e) => handleRegisterInput("email", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Name</label>
+                <input
+                  type="text"
+                  value={registerForm.name}
+                  onChange={(e) => handleRegisterInput("name", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Specialization</label>
+                <input
+                  type="text"
+                  value={registerForm.specialization}
+                  onChange={(e) => handleRegisterInput("specialization", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>License Number</label>
+                <input
+                  type="text"
+                  value={registerForm.licenseNumber}
+                  onChange={(e) => handleRegisterInput("licenseNumber", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Hospital Name</label>
+                <input
+                  type="text"
+                  value={registerForm.hospitalName}
+                  onChange={(e) => handleRegisterInput("hospitalName", e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label style={{ color: "#d1d5db" }}>Contact Info</label>
+                <input
+                  type="text"
+                  value={registerForm.contactInfo}
+                  onChange={(e) => handleRegisterInput("contactInfo", e.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: "100%", justifyContent: "center" }}
+                disabled={registerLoading}
+              >
+                {registerLoading ? "Creating Account..." : "Create Doctor Account"}
+              </button>
+            </form>
+          )}
         </motion.div>
 
         {/* FOOTER */}
@@ -287,7 +446,7 @@ function Login({ onLogin }) {
         >
           <p style={{ margin: "0 0 10px 0" }}>🔐 Healthcare-grade security with HIPAA compliance</p>
           <p style={{ margin: 0 }}>
-            Questions? <a href="#" style={{ color: "#60a5fa", textDecoration: "none" }}>Contact Support</a>
+            Questions? <button type="button" style={{ color: "#60a5fa", textDecoration: "none", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>Contact Support</button>
           </p>
         </motion.div>
       </motion.div>
