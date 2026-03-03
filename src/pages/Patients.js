@@ -161,7 +161,6 @@ function PatientsPage() {
                 {filteredPatients.map((patient) => (
                   <motion.tr
                     key={patient.id}
-                    whileHover={{ backgroundColor: "#f9fafb" }}
                   >
                     <td style={{ fontWeight: 500 }}>{patient.name}</td>
                     <td>

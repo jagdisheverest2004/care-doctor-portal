@@ -30,14 +30,6 @@ function toApiDateTime(value) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }
 
-function getRiskBadge(level) {
-  const risk = String(level || "LOW").toUpperCase();
-  if (risk === "CRITICAL") return "danger";
-  if (risk === "HIGH") return "danger";
-  if (risk === "MEDIUM") return "warning";
-  return "info";
-}
-
 function makeEmptyNewDrug() {
   return {
     drugId: "",
@@ -104,6 +96,233 @@ function formatRecordNameForDisplay(fileName, maxBaseLength = 10) {
   }
 
   return `${fileBaseName.slice(0, maxBaseLength)}...${fileExtension}`;
+}
+
+function matchesConsultationSearch(consultation, query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedQuery) return true;
+
+  const doctor = String(consultation?.prescribedDoctorName || "").toLowerCase();
+  const purpose = String(consultation?.purpose || "").toLowerCase();
+  const visitedAt = formatApiDateTime(consultation?.visitedAt).toLowerCase();
+  return doctor.includes(normalizedQuery) || purpose.includes(normalizedQuery) || visitedAt.includes(normalizedQuery);
+}
+
+function getPrescriptionTimeCounts(drugs) {
+  const counts = {
+    MORNING: 0,
+    AFTERNOON: 0,
+    EVENING: 0,
+    NIGHT: 0,
+  };
+
+  (drugs || []).forEach((drug) => {
+    (drug?.drugTimes || []).forEach((timeValue) => {
+      const normalized = String(timeValue || "").toUpperCase();
+      if (counts[normalized] !== undefined) {
+        counts[normalized] += 1;
+      }
+    });
+  });
+
+  return counts;
+}
+
+function ConsultationsTable({ consultations }) {
+  const [searchValue, setSearchValue] = useState("");
+  const [riskFilter, setRiskFilter] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState("desc");
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedConsultationId, setExpandedConsultationId] = useState("");
+
+  const filteredConsultations = useMemo(() => {
+    return (consultations || []).filter((consultation) => {
+      const matchesSearch = matchesConsultationSearch(consultation, searchValue);
+      const matchesRisk =
+        riskFilter === "ALL" || String(consultation?.riskLevel || "LOW").toUpperCase() === riskFilter;
+      return matchesSearch && matchesRisk;
+    });
+  }, [consultations, searchValue, riskFilter]);
+
+  const sortedConsultations = useMemo(() => {
+    const nextValues = [...filteredConsultations];
+    nextValues.sort((firstValue, secondValue) => {
+      const firstTime = new Date(firstValue?.visitedAt || 0).getTime();
+      const secondTime = new Date(secondValue?.visitedAt || 0).getTime();
+      return sortOrder === "asc" ? firstTime - secondTime : secondTime - firstTime;
+    });
+    return nextValues;
+  }, [filteredConsultations, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedConsultationId("");
+  }, [searchValue, riskFilter, sortOrder, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedConsultations.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedConsultations = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return sortedConsultations.slice(startIndex, endIndex);
+  }, [sortedConsultations, currentPage, pageSize]);
+
+  const rangeStart = sortedConsultations.length ? (currentPage - 1) * pageSize + 1 : 0;
+  const rangeEnd = Math.min(currentPage * pageSize, sortedConsultations.length);
+
+  return (
+    <div className="consultation-history-table-wrapper">
+      <div className="medical-records-search-row">
+        <input
+          type="text"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          placeholder="Search by doctor, purpose or visited time"
+          aria-label="Search consultations"
+        />
+      </div>
+
+      <div className="medical-records-controls-row">
+        <div className="medical-records-control-group">
+          <label htmlFor="consultations-risk-filter">Risk Filter</label>
+          <select
+            id="consultations-risk-filter"
+            value={riskFilter}
+            onChange={(event) => setRiskFilter(event.target.value)}
+          >
+            <option value="ALL">All Risks</option>
+            <option value="LOW">LOW</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="HIGH">HIGH</option>
+            <option value="CRITICAL">CRITICAL</option>
+          </select>
+        </div>
+
+        <div className="medical-records-control-group">
+          <label htmlFor="consultations-order">Order</label>
+          <select
+            id="consultations-order"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+          >
+            <option value="desc">Latest First</option>
+            <option value="asc">Oldest First</option>
+          </select>
+        </div>
+
+        <div className="medical-records-control-group">
+          <label htmlFor="consultations-rows">Rows</label>
+          <select
+            id="consultations-rows"
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value) || 10)}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+      </div>
+
+      {sortedConsultations.length ? (
+        <>
+          <div className="table-container consultation-prescription-table consultation-history-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Doctor</th>
+                  <th>Purpose</th>
+                  <th>Visited At</th>
+                  <th>Consultation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedConsultations.map((consultation) => {
+                  const consultationId = consultation?.id;
+                  const isExpanded = String(expandedConsultationId) === String(consultationId);
+                  const records = consultation?.medicalRecords || [];
+                  const imageCount = records.filter((record) => String(record?.fileType || "").toUpperCase() === "IMAGE").length;
+                  const reportCount = records.filter((record) => String(record?.fileType || "").toUpperCase() === "REPORT").length;
+                  const prescriptions = consultation?.drugsPrescribed || [];
+                  const timeCounts = getPrescriptionTimeCounts(prescriptions);
+
+                  return [
+                    <tr key={`consultation-${consultationId}`}>
+                      <td>{consultation?.prescribedDoctorName || "--"}</td>
+                      <td>{consultation?.purpose || "--"}</td>
+                      <td>{formatApiDateTime(consultation?.visitedAt)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setExpandedConsultationId((previousValue) => (
+                            String(previousValue) === String(consultationId) ? "" : consultationId
+                          ))}
+                        >
+                          {isExpanded ? "Hide Consultation" : "View Consultation"}
+                        </button>
+                      </td>
+                    </tr>,
+                    <tr key={`consultation-detail-${consultationId}`} className="consultation-details-row">
+                      <td colSpan={4}>
+                        <div className={`consultation-details-collapsible ${isExpanded ? "open" : ""}`}>
+                          <div className="consultation-details-body">
+                            <p><strong>Notes:</strong> {consultation?.notes || "--"}</p>
+                            <p><strong>Medical Records:</strong> Total {records.length} • Image {imageCount} • Report {reportCount}</p>
+                            <p><strong>Prescriptions:</strong> {prescriptions.length}</p>
+                            <p>
+                              <strong>Prescription Times:</strong>{" "}
+                              Morning {timeCounts.MORNING} • Afternoon {timeCounts.AFTERNOON} • Evening {timeCounts.EVENING} • Night {timeCounts.NIGHT}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>,
+                  ];
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="medical-records-pagination-row">
+            <small>
+              Showing {rangeStart}-{rangeEnd} of {sortedConsultations.length} consultations
+            </small>
+            <div className="medical-records-pagination-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage((previousValue) => Math.max(1, previousValue - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </button>
+              <span>Page {currentPage} / {totalPages}</span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage((previousValue) => Math.min(totalPages, previousValue + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p style={{ color: "#6b7280", marginTop: "8px" }}>
+          {(consultations || []).length ? "No consultations match your search/filter." : "No consultation history found."}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function MedicalRecordsTable({
@@ -351,8 +570,6 @@ function PatientCommandCenter({ patient: propPatient }) {
     reasonForAppointment: "",
     appointmentDateTime: "",
   });
-  const [overviewRecordSearchByVisit, setOverviewRecordSearchByVisit] = useState({});
-  const [overviewExpandedRecordByVisit, setOverviewExpandedRecordByVisit] = useState({});
   const [reportsRecordSearch, setReportsRecordSearch] = useState("");
   const [reportsExpandedRecordId, setReportsExpandedRecordId] = useState("");
 
@@ -721,89 +938,17 @@ function PatientCommandCenter({ patient: propPatient }) {
             <div className="section-card consultation-overview-card">
               <h3>Patient Profile & Consultation History</h3>
               <div className="patient-meta-grid">
-                <div className="patient-meta-column">
+                <div className="patient-meta-column patient-meta-single">
                   <p><strong>Patient ID:</strong> {patient.id}</p>
                   <p><strong>Date of Birth:</strong> {patient.dateOfBirth || "--"}</p>
                   <p><strong>Address:</strong> {patient.address || "--"}</p>
-                </div>
-                <div className="patient-meta-column">
                   <p><strong>Contact:</strong> {patient.contactNumber || "--"}</p>
                   <p><strong>Allergies:</strong> {patient.allergies || "--"}</p>
                   <p><strong>Chronic Conditions:</strong> {patient.chronicConditions || "--"}</p>
                 </div>
               </div>
 
-              {consultations.length === 0 ? (
-                <p style={{ color: "#6b7280" }}>No consultation history found.</p>
-              ) : (
-                consultations.map((visit) => (
-                  <div key={visit.id} className="consultation-visit-card">
-                    <div className="consultation-visit-header">
-                      <h4 style={{ margin: 0 }}>Consultation #{visit.id}</h4>
-                      <span className={`badge badge-${getRiskBadge(visit.riskLevel)}`}>{visit.riskLevel}</span>
-                    </div>
-                    <div className="consultation-visit-details">
-                      <p><strong>Doctor:</strong> {visit.prescribedDoctorName} (ID: {visit.prescribedDoctorId})</p>
-                      <p><strong>Purpose:</strong> {visit.purpose || "--"}</p>
-                      <p><strong>Notes:</strong> {visit.notes || "--"}</p>
-                      <p><strong>Visited At:</strong> {formatApiDateTime(visit.visitedAt)}</p>
-                    </div>
-
-                    <div className="consultation-block">
-                      <strong>Medical Records</strong>
-                      <MedicalRecordsTable
-                        records={visit.medicalRecords || []}
-                        searchValue={overviewRecordSearchByVisit[visit.id] || ""}
-                        onSearchChange={(value) => {
-                          setOverviewRecordSearchByVisit((previousValue) => ({
-                            ...previousValue,
-                            [visit.id]: value,
-                          }));
-                        }}
-                        expandedRecordId={overviewExpandedRecordByVisit[visit.id] || ""}
-                        onToggleSummary={(recordId) => {
-                          setOverviewExpandedRecordByVisit((previousValue) => ({
-                            ...previousValue,
-                            [visit.id]: String(previousValue[visit.id]) === String(recordId) ? "" : recordId,
-                          }));
-                        }}
-                      />
-                    </div>
-
-                    <div className="consultation-block">
-                      <strong>Prescriptions</strong>
-                      {visit.drugsPrescribed?.length ? (
-                        <div className="table-container consultation-prescription-table">
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>Drug</th>
-                                <th>Dosage</th>
-                                <th>Instructions</th>
-                                <th>Dates</th>
-                                <th>Times</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {visit.drugsPrescribed.map((drug) => (
-                                <tr key={drug.id}>
-                                  <td>{drug.drugName} (#{drug.drugId})</td>
-                                  <td>{drug.dosage}</td>
-                                  <td>{drug.instructions}</td>
-                                  <td>{drug.startDate} → {drug.endDate}</td>
-                                  <td>{(drug.drugTimes || []).join(", ")}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p style={{ color: "#6b7280" }}>No prescriptions.</p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+              <ConsultationsTable consultations={consultations} />
             </div>
           )}
 

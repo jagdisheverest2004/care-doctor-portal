@@ -1330,6 +1330,10 @@ body.dark-mode .consultation-overview-card {
     margin: 16px 0 20px;
 }
 
+.patient-meta-single {
+    grid-column: 1 / -1;
+}
+
 .patient-meta-column {
     background: rgba(255, 255, 255, 0.75);
     border: 1px solid #e2e8f0;
@@ -1397,6 +1401,68 @@ body.dark-mode .consultation-visit-details p {
 
 body.dark-mode .consultation-block {
     border-top-color: #334155;
+}
+
+.consultation-history-table-wrapper {
+    margin-top: 8px;
+}
+
+.consultation-history-table-container td:nth-child(1) {
+    width: 24%;
+}
+
+.consultation-history-table-container td:nth-child(2) {
+    width: 40%;
+}
+
+.consultation-history-table-container td:nth-child(3) {
+    width: 22%;
+    white-space: nowrap;
+}
+
+.consultation-history-table-container td:nth-child(4),
+.consultation-history-table-container th:nth-child(4) {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.consultation-details-row td {
+    padding-top: 0;
+    background: #f8fafc;
+}
+
+body.dark-mode .consultation-details-row td {
+    background: #111827;
+}
+
+.consultation-details-collapsible {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.28s ease, opacity 0.22s ease;
+}
+
+.consultation-details-collapsible.open {
+    max-height: 220px;
+    opacity: 1;
+}
+
+.consultation-details-body {
+    padding: 10px 6px 12px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.consultation-details-body p {
+    margin: 0 0 6px;
+}
+
+.consultation-details-body p:last-child {
+    margin-bottom: 0;
+}
+
+body.dark-mode .consultation-details-body {
+    color: #cbd5e1;
 }
 
 .medical-records-table-wrapper {
