@@ -1,27 +1,25 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
-import { api } from "../services/api";
 
 function Login({ onLogin }) {
+  const location = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [registering, setRegistering] = useState(false);
-  const [registerLoading, setRegisterLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [registerForm, setRegisterForm] = useState({
-    username: "",
-    password: "",
-    email: "",
-    name: "",
-    specialization: "",
-    licenseNumber: "",
-    hospitalName: "",
-    contactInfo: "",
-  });
+
+  useEffect(() => {
+    if (location.state?.accountCreated) {
+      setSuccess("Doctor account created successfully. Please sign in.");
+      if (location.state?.username) {
+        setUsername(location.state.username);
+      }
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,46 +34,6 @@ function Login({ onLogin }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRegisterInput = (key, value) => {
-    setRegisterForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleDoctorRegister = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setRegisterLoading(true);
-
-    try {
-      await api.auth.registerDoctor(registerForm);
-      setSuccess("Doctor account created successfully. You can now sign in.");
-      setRegistering(false);
-      setUsername(registerForm.username);
-      setPassword("");
-      setRegisterForm({
-        username: "",
-        password: "",
-        email: "",
-        name: "",
-        specialization: "",
-        licenseNumber: "",
-        hospitalName: "",
-        contactInfo: "",
-      });
-    } catch (apiError) {
-      setError(apiError?.message || "Unable to create doctor account.");
-    } finally {
-      setRegisterLoading(false);
-    }
-  };
-
-  const fillDemoCredentials = () => {
-    setUsername("jaggie");
-    setPassword("var@0923");
-    setError("");
-    setSuccess("");
   };
 
   return (
@@ -291,145 +249,15 @@ function Login({ onLogin }) {
             📱 Biometric Login
           </button>
 
-          {/* DEMO CREDENTIALS SECTION */}
-          <div
-            style={{
-              marginTop: "25px",
-              padding: "16px",
-              background: "rgba(96, 165, 250, 0.1)",
-              border: "1px solid #475569",
-              borderRadius: "8px",
-            }}
-          >
-            <p
-              style={{
-                fontWeight: 600,
-                fontSize: "12px",
-                margin: "0 0 10px 0",
-                color: "#60a5fa",
-                textTransform: "uppercase",
-              }}
-            >
-              📋 Demo Credentials
-            </p>
-            <div style={{ fontSize: "12px", color: "#cbd5e1", lineHeight: "1.6", fontFamily: "monospace" }}>
-              <p style={{ margin: "0 0 6px 0" }}>
-                Username: <span style={{ color: "#60a5fa", fontWeight: 600 }}>jaggie</span>
-              </p>
-              <p style={{ margin: "0 0 12px 0" }}>
-                Password: <span style={{ color: "#60a5fa", fontWeight: 600 }}>var@0923</span>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={fillDemoCredentials}
-              style={{ width: "100%", justifyContent: "center", fontSize: "12px" }}
-            >
-              Auto-Fill Quick Login
-            </button>
-          </div>
-
           <div style={{ marginTop: "16px" }}>
-            <button
-              type="button"
+            <Link
+              to="/register"
               className="btn btn-secondary"
-              style={{ width: "100%", justifyContent: "center" }}
-              onClick={() => {
-                setRegistering((prev) => !prev);
-                setError("");
-                setSuccess("");
-              }}
+              style={{ width: "100%", justifyContent: "center", textDecoration: "none" }}
             >
-              {registering ? "Cancel Account Creation" : "Create Doctor Account"}
-            </button>
+              Create Doctor Account
+            </Link>
           </div>
-
-          {registering && (
-            <form onSubmit={handleDoctorRegister} style={{ marginTop: "16px" }}>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Username</label>
-                <input
-                  type="text"
-                  value={registerForm.username}
-                  onChange={(e) => handleRegisterInput("username", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Password</label>
-                <input
-                  type="password"
-                  value={registerForm.password}
-                  onChange={(e) => handleRegisterInput("password", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Email</label>
-                <input
-                  type="email"
-                  value={registerForm.email}
-                  onChange={(e) => handleRegisterInput("email", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Name</label>
-                <input
-                  type="text"
-                  value={registerForm.name}
-                  onChange={(e) => handleRegisterInput("name", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Specialization</label>
-                <input
-                  type="text"
-                  value={registerForm.specialization}
-                  onChange={(e) => handleRegisterInput("specialization", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>License Number</label>
-                <input
-                  type="text"
-                  value={registerForm.licenseNumber}
-                  onChange={(e) => handleRegisterInput("licenseNumber", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Hospital Name</label>
-                <input
-                  type="text"
-                  value={registerForm.hospitalName}
-                  onChange={(e) => handleRegisterInput("hospitalName", e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label style={{ color: "#d1d5db" }}>Contact Info</label>
-                <input
-                  type="text"
-                  value={registerForm.contactInfo}
-                  onChange={(e) => handleRegisterInput("contactInfo", e.target.value)}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ width: "100%", justifyContent: "center" }}
-                disabled={registerLoading}
-              >
-                {registerLoading ? "Creating Account..." : "Create Doctor Account"}
-              </button>
-            </form>
-          )}
         </motion.div>
 
         {/* FOOTER */}

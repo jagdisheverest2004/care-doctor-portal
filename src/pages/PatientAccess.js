@@ -105,15 +105,15 @@ function PatientAccess() {
           >
             <p>
               💡 Demo IDs:{" "}
-              <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
+              <code className="token-chip token-chip-neutral token-chip-inline-code">
                 1
               </code>
               ,{" "}
-              <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
+              <code className="token-chip token-chip-neutral token-chip-inline-code">
                 2
               </code>
               ,{" "}
-              <code style={{ background: "#f3f4f6", padding: "2px 6px", borderRadius: "3px" }}>
+              <code className="token-chip token-chip-neutral token-chip-inline-code">
                 3
               </code>
             </p>

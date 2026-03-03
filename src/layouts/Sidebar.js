@@ -3,7 +3,6 @@ import {
   FiHome,
   FiUsers,
   FiCalendar,
-  FiFilter,
   FiAlertCircle,
   FiTrendingUp,
   FiClipboard,
@@ -31,22 +30,16 @@ function Sidebar({ onLogout }) {
           <FiHome /> Dashboard
         </Link>
         <Link
-          to="/patients"
-          className={`menu-item ${isActive("/patients") ? "active" : ""}`}
+          to="/consultations"
+          className={`menu-item ${isActive("/consultations") ? "active" : ""}`}
         >
-          <FiUsers /> Patients
+          <FiUsers /> Consultations
         </Link>
         <Link
           to="/appointments"
           className={`menu-item ${isActive("/appointments") ? "active" : ""}`}
         >
           <FiCalendar /> Appointments
-        </Link>
-        <Link
-          to="/prescription"
-          className={`menu-item ${isActive("/prescription") ? "active" : ""}`}
-        >
-          <FiFilter /> Prescription Builder
         </Link>
         <Link
           to="/alerts"

@@ -69,9 +69,9 @@ function PatientsPage() {
         transition={{ duration: 0.5 }}
       >
         <div style={{ marginBottom: "30px" }}>
-          <h1>Patient Management</h1>
+          <h1>Consultation Management</h1>
           <p style={{ color: "#6b7280", marginTop: "8px" }}>
-            Search and filter patient records
+            Search and filter consultation records
           </p>
         </div>
 
@@ -113,7 +113,7 @@ function PatientsPage() {
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
-                <option value="very low">Very Low</option>
+                <option value="very_low">Very Low</option>
               </select>
             </div>
           </div>
@@ -129,7 +129,7 @@ function PatientsPage() {
       >
         <div className="card-header">
           <h3 className="card-title">
-            Patients ({filteredPatients.length})
+            Consultations ({filteredPatients.length})
           </h3>
         </div>
 
@@ -137,11 +137,11 @@ function PatientsPage() {
 
         {loading ? (
           <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
-            <p>Loading patients...</p>
+            <p>Loading consultations...</p>
           </div>
         ) : filteredPatients.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}>
-            <p>No patients found matching your search criteria.</p>
+            <p>No consultations found matching your search criteria.</p>
           </div>
         ) : (
           <div className="table-container">
@@ -168,14 +168,7 @@ function PatientsPage() {
                       {patient.age} yrs / {patient.gender}
                     </td>
                     <td>
-                      <span
-                        style={{
-                          background: "#f3f4f6",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          fontWeight: 600,
-                        }}
-                      >
+                      <span className="blood-group-pill">
                         {patient.bloodGroup}
                       </span>
                     </td>

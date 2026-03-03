@@ -852,8 +852,8 @@ export const getAuditLogs = () => [
   },
   {
     id: 2,
-    doctor: "Dr. Kailash",
-    patient: "P003",
+    doctor: "Dr. Jagdish",
+    patient: "P002",
     action: "Accessed Patient Record",
     reason: "Routine consultation",
     timestamp: "2026-02-14 10:30 AM",
@@ -861,7 +861,7 @@ export const getAuditLogs = () => [
   },
   {
     id: 3,
-    doctor: "Dr. Priya",
+    doctor: "Dr. Hemanth",
     patient: "P002",
     action: "Modified Prescription",
     reason: "Update dosage",

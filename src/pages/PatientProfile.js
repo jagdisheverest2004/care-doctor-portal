@@ -14,7 +14,7 @@ function PatientProfilePage() {
     return (
       <div className="card">
         <h2>Patient Not Found</h2>
-        <button className="btn btn-primary" onClick={() => navigate("/patients")}>
+        <button className="btn btn-primary" onClick={() => navigate("/consultations")}>
           Back to Patients
         </button>
       </div>
@@ -31,7 +31,7 @@ function PatientProfilePage() {
       >
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => navigate("/patients")}
+          onClick={() => navigate("/consultations")}
           style={{ marginBottom: "20px" }}
         >
           <FiArrowLeft /> Back to Patients
@@ -69,15 +69,7 @@ function PatientProfilePage() {
                   <p style={{ fontSize: "12px", textTransform: "uppercase" }}>
                     Blood Group
                   </p>
-                  <p
-                    style={{
-                      fontWeight: 600,
-                      color: "#1f2937",
-                      background: "#f3f4f6",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                    }}
-                  >
+                  <p className="token-chip token-chip-neutral" style={{ fontWeight: 600 }}>
                     {patient.bloodGroup}
                   </p>
                 </div>

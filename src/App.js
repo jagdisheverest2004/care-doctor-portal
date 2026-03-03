@@ -12,7 +12,7 @@ import Appointments from "./pages/Appointments";
 import PatientsPage from "./pages/Patients";
 import PatientAccessPage from "./pages/PatientAccess";
 import PatientCommandCenter from "./pages/PatientCommandCenter";
-import PrescriptionBuilder from "./pages/PrescriptionBuilder";
+import RegisterDoctorPage from "./pages/RegisterDoctor";
 import AIAlertsPage from "./pages/AIAlerts";
 import AnalyticsPage from "./pages/Analytics";
 import AuditLogsPage from "./pages/AuditLogs";
@@ -131,6 +131,24 @@ function App() {
         />
 
         <Route
+          path="/register"
+          element={
+            !authChecked ? (
+              <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div className="card" style={{ maxWidth: "400px", width: "100%", textAlign: "center" }}>
+                  <h3 className="card-title">Checking session...</h3>
+                  <p style={{ color: "#6b7280", marginTop: "8px" }}>Validating authentication cookie</p>
+                </div>
+              </div>
+            ) : isLoggedIn ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <RegisterDoctorPage />
+            )
+          }
+        />
+
+        <Route
           path="*"
           element={(
             <ProtectedRoute isLoggedIn={isLoggedIn} authChecked={authChecked}>
@@ -143,11 +161,11 @@ function App() {
                 <Routes>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/appointments" element={<Appointments />} />
-                  <Route path="/patients" element={<PatientsPage />} />
+                  <Route path="/consultations" element={<PatientsPage />} />
+                  <Route path="/patients" element={<Navigate to="/consultations" replace />} />
                   <Route path="/patient-access/:id" element={<PatientAccessPage />} />
                   <Route path="/patient-access" element={<PatientAccessPage />} />
                   <Route path="/patient/:id" element={<PatientCommandCenter />} />
-                  <Route path="/prescription" element={<PrescriptionBuilder />} />
                   <Route path="/alerts" element={<AIAlertsPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/audit" element={<AuditLogsPage />} />

@@ -3,7 +3,15 @@ import { motion } from "framer-motion";
 import { FiSearch } from "react-icons/fi";
 import { api } from "../services/api";
 
-const APPOINTMENT_STATUSES = ["SCHEDULED", "ACCEPTED", "COMPLETED", "CANCELLED"];
+const APPOINTMENT_STATUSES = ["ALL","SCHEDULED", "ACCEPTED", "COMPLETED", "CANCELLED"];
+
+function normalizeAppointmentsPayload(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.appointments)) return data.appointments;
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.content)) return data.content;
+    return [];
+}
 
 function getStatusBadge(status) {
     if (status === "COMPLETED") return "success";
@@ -13,7 +21,7 @@ function getStatusBadge(status) {
 }
 
 function Appointments() {
-    const [status, setStatus] = useState("SCHEDULED");
+    const [status, setStatus] = useState("ALL");
     const [search, setSearch] = useState("");
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,8 +33,19 @@ function Appointments() {
         setError("");
 
         try {
-            const data = await api.doctor.getAppointments(selectedStatus);
-            setAppointments(data?.appointments || []);
+            if (selectedStatus === "ALL") {
+                const data = await api.doctor.getAppointments();
+                const normalized = normalizeAppointmentsPayload(data).sort(
+                    (first, second) => new Date(second.appointmentDateTime).getTime() - new Date(first.appointmentDateTime).getTime()
+                );
+                setAppointments(normalized);
+            } else {
+                const data = await api.doctor.getAppointments(selectedStatus);
+                const normalized = normalizeAppointmentsPayload(data).sort(
+                    (first, second) => new Date(second.appointmentDateTime).getTime() - new Date(first.appointmentDateTime).getTime()
+                );
+                setAppointments(normalized);
+            }
         } catch (apiError) {
             setError(apiError?.message || "Failed to load appointments.");
             setAppointments([]);

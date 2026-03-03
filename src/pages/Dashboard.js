@@ -4,35 +4,35 @@ import { FiUsers, FiAlertCircle, FiCalendar, FiTrendingUp } from "react-icons/fi
 import { getAlerts } from "../data/mockData";
 import { api } from "../services/api";
 
-function getBadgeClass(value) {
-  const normalized = String(value || "").toUpperCase();
-  if (["CRITICAL", "HIGH", "CANCELLED"].includes(normalized)) return "danger";
-  if (["MEDIUM", "SCHEDULED"].includes(normalized)) return "warning";
-  if (["COMPLETED"].includes(normalized)) return "success";
-  return "info";
-}
-
 function Dashboard() {
   const [profile, setProfile] = useState(null);
+  const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const alerts = getAlerts();
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadDashboardData = async () => {
       setLoading(true);
       setError("");
+
       try {
-        const data = await api.doctor.getProfile();
-        setProfile(data);
+        const [profileData, patientsData] = await Promise.all([
+          api.doctor.getProfile(),
+          api.doctor.getPatients(),
+        ]);
+
+        setProfile(profileData);
+        setPatients(patientsData?.patients || []);
       } catch (apiError) {
         setError(apiError?.message || "Failed to load dashboard data.");
+        setPatients([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadProfile();
+    loadDashboardData();
   }, []);
 
   const appointments = useMemo(() => profile?.appointments || [], [profile]);
@@ -47,37 +47,73 @@ function Dashboard() {
     return uniquePatientIds.size;
   }, [consultations]);
 
+  const doctorId = useMemo(() => {
+    return profile?.doctorId || profile?.id || null;
+  }, [profile]);
+
   const recentPatients = useMemo(() => {
-    const rows = [];
+    const mergedPatients = new Map();
 
-    appointments.forEach((item) => {
-      rows.push({
-        id: `appt-${item.appointmentId}`,
-        patientId: item.patientId,
-        name: item.patientName,
-        age: "--",
-        bloodGroup: "--",
-        lastVisit: item.appointmentDateTime,
-        riskLevel: item.appointmentStatus || "SCHEDULED",
+    patients.forEach((patientItem) => {
+      const key = patientItem.id;
+      if (!mergedPatients.has(key)) {
+        mergedPatients.set(key, {
+          ...patientItem,
+          doctorVisits: [...(patientItem.doctorVisits || [])],
+        });
+        return;
+      }
+
+      const existing = mergedPatients.get(key);
+      const existingVisitIds = new Set((existing.doctorVisits || []).map((visit) => visit.id));
+      const mergedVisits = [...(existing.doctorVisits || [])];
+
+      (patientItem.doctorVisits || []).forEach((visit) => {
+        if (!existingVisitIds.has(visit.id)) {
+          mergedVisits.push(visit);
+        }
+      });
+
+      mergedPatients.set(key, {
+        ...existing,
+        doctorVisits: mergedVisits,
       });
     });
 
-    consultations.forEach((item) => {
-      rows.push({
-        id: `consult-${item.consultationId}`,
-        patientId: item.patientId,
-        name: item.patientName,
-        age: "--",
-        bloodGroup: "--",
-        lastVisit: item.visitedAt,
-        riskLevel: item.riskLevel || "MEDIUM",
-      });
-    });
+    return Array.from(mergedPatients.values())
+      .map((patientItem) => {
+        const allVisits = patientItem.doctorVisits || [];
+        const doctorVisits = doctorId
+          ? allVisits.filter((visit) => Number(visit.prescribedDoctorId) === Number(doctorId))
+          : allVisits;
 
-    return rows
-      .sort((a, b) => new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime())
+        const consultationCount = new Set(doctorVisits.map((visit) => visit.id)).size;
+        const lastVisitedAt = doctorVisits
+          .map((visit) => visit.visitedAt)
+          .filter(Boolean)
+          .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0] || null;
+
+        return {
+          id: patientItem.id,
+          name: patientItem.name,
+          age: patientItem.age,
+          gender: patientItem.gender,
+          bloodGroup: patientItem.bloodGroup,
+          consultationCount,
+          lastVisitedAt,
+        };
+      })
+      .sort((first, second) => {
+        if (second.consultationCount !== first.consultationCount) {
+          return second.consultationCount - first.consultationCount;
+        }
+
+        const firstTime = first.lastVisitedAt ? new Date(first.lastVisitedAt).getTime() : 0;
+        const secondTime = second.lastVisitedAt ? new Date(second.lastVisitedAt).getTime() : 0;
+        return secondTime - firstTime;
+      })
       .slice(0, 8);
-  }, [appointments, consultations]);
+  }, [patients, doctorId]);
 
   const statsData = [
     {
@@ -166,7 +202,7 @@ function Dashboard() {
       >
         <div className="card-header">
           <h3 className="card-title">Recent Patients</h3>
-          <a href="/patients" style={{ color: "#2563eb", textDecoration: "none" }}>
+          <a href="/consultations" style={{ color: "#2563eb", textDecoration: "none" }}>
             View All →
           </a>
         </div>
@@ -177,9 +213,9 @@ function Dashboard() {
               <tr>
                 <th>Patient Name</th>
                 <th>Age</th>
+                <th>Gender</th>
                 <th>Blood Group</th>
-                <th>Last Visit</th>
-                <th>Status</th>
+                <th>Consultations</th>
               </tr>
             </thead>
             <tbody>
@@ -202,14 +238,10 @@ function Dashboard() {
               {!loading && recentPatients.map((patient) => (
                 <tr key={patient.id}>
                   <td style={{ fontWeight: 500 }}>{patient.name}</td>
-                  <td>{patient.age === "--" ? "--" : `${patient.age} yrs`}</td>
+                  <td>{patient.age ? `${patient.age} yrs` : "--"}</td>
+                  <td>{patient.gender || "--"}</td>
                   <td>{patient.bloodGroup}</td>
-                  <td>{new Date(patient.lastVisit).toLocaleString()}</td>
-                  <td>
-                    <span className={`badge badge-${getBadgeClass(patient.riskLevel)}`}>
-                      {patient.riskLevel}
-                    </span>
-                  </td>
+                  <td>{patient.consultationCount}</td>
                 </tr>
               ))}
             </tbody>

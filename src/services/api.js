@@ -100,10 +100,11 @@ export const api = {
       return request(apiClient.patch("/api/doctor/update-profile", payload), "Unable to update profile");
     },
 
-    async getAppointments(status = "SCHEDULED") {
+    async getAppointments(status) {
+      const hasStatus = typeof status === "string" && status.trim().length > 0;
       return request(
         apiClient.get("/api/doctor/patients/appointments", {
-          params: status ? { status } : undefined,
+          params: hasStatus ? { status } : undefined,
         }),
         "Unable to fetch appointments"
       );

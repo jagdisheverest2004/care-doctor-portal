@@ -75,20 +75,17 @@ function AuditLogsPage() {
                     <strong>{log.doctor}</strong>
                   </td>
                   <td>
-                    <span style={{ background: "#f3f4f6", padding: "4px 8px", borderRadius: "4px" }}>
+                    <span className="token-chip token-chip-neutral">
                       {log.patient}
                     </span>
                   </td>
                   <td>
                     <span
-                      style={{
-                        fontWeight: 600,
-                        color:
-                          log.action.includes("Override") ||
-                          log.action.includes("Modified")
-                            ? "#ef4444"
-                            : "#2563eb",
-                      }}
+                      className={`audit-action-label ${
+                        log.action.includes("Override") || log.action.includes("Modified")
+                          ? "audit-action-label-danger"
+                          : "audit-action-label-brand"
+                      }`}
                     >
                       {log.action}
                     </span>
