@@ -51,16 +51,18 @@ function App() {
   const doctorName = useMemo(() => {
     if (doctorProfile?.name) return doctorProfile.name;
     const authUser = api.authState.getUser();
-    return authUser?.username || "Doctor";
+    return authUser?.name || authUser?.username || "Doctor";
   }, [doctorProfile]);
 
   useEffect(() => {
     const bootstrapAuthFromSession = async () => {
       try {
         const profile = await api.doctor.getProfile();
+        const existingUser = api.authState.getUser();
         setDoctorProfile(profile);
         api.authState.setUser({
-          username: profile?.name || api.authState.getUser()?.username || "Doctor",
+          username: existingUser?.username || profile?.username || "doctor",
+          name: profile?.name || existingUser?.name || existingUser?.username || "Doctor",
           role: "DOCTOR",
         });
         setIsLoggedIn(true);
@@ -93,6 +95,11 @@ function App() {
   const handleLogin = async (payload) => {
     await api.auth.login(payload);
     const profile = await api.doctor.getProfile();
+    api.authState.setUser({
+      username: payload?.username,
+      name: profile?.name || payload?.username || "Doctor",
+      role: "DOCTOR",
+    });
     setDoctorProfile(profile);
     setIsLoggedIn(true);
     setAuthChecked(true);

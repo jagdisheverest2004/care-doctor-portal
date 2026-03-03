@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import PatientHeader from "../components/PatientHeader";
 import TabsNav from "../components/TabsNav";
 import { api } from "../services/api";
+import { addAuditLog } from "../services/auditLog";
 
 const DRUG_TIME_OPTIONS = ["MORNING", "AFTERNOON", "EVENING", "NIGHT"];
 
@@ -45,6 +46,33 @@ function makeEmptyNewDrug() {
     startDate: "",
     endDate: "",
     drugTimes: [],
+  };
+}
+
+function summarizeSafetyResult(data) {
+  const results = data?.results || [];
+  const allItems = results.flatMap((result) => result?.analysis_results || []);
+
+  let highestSeverity = "LOW";
+  let highestConfidence = null;
+
+  const severityRank = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+  allItems.forEach((item) => {
+    const severity = String(item?.result?.severity || "LOW").toUpperCase();
+    if ((severityRank[severity] || 1) > (severityRank[highestSeverity] || 1)) {
+      highestSeverity = severity;
+    }
+
+    const confidenceRaw = item?.result?.confidence ?? item?.result?.confidenceLevel;
+    const confidence = Number(confidenceRaw);
+    if (!Number.isNaN(confidence)) {
+      highestConfidence = highestConfidence === null ? confidence : Math.max(highestConfidence, confidence);
+    }
+  });
+
+  return {
+    severity: highestSeverity,
+    confidence: highestConfidence === null ? "--" : `${(highestConfidence * 100).toFixed(1)}%`,
   };
 }
 
@@ -460,6 +488,22 @@ function PatientCommandCenter({ patient: propPatient }) {
         await api.doctor.uploadXray(selectedConsultationId, file);
         setXrayFile(null);
       }
+
+      const currentUser = api.authState.getUser();
+      addAuditLog({
+        doctor: currentUser?.name || currentUser?.username || "Doctor",
+        patientId: patient?.id,
+        patientName: patient?.name,
+        eventType: "FILE_UPLOAD",
+        action: "Uploaded Medical File",
+        reason: `${type === "report" ? "Report" : "X-ray Image"} uploaded for consultation #${selectedConsultationId}`,
+        details: {
+          consultationId: selectedConsultationId,
+          fileType: type === "report" ? "REPORT" : "IMAGE",
+          fileName: file?.name || "--",
+        },
+      });
+
       setMessage(`${type === "report" ? "Report" : "X-ray"} uploaded successfully.`);
       await loadPatientDetails(patient?.id || id);
     } catch (apiError) {
@@ -483,6 +527,33 @@ function PatientCommandCenter({ patient: propPatient }) {
     try {
       const data = await api.doctor.checkDrugSafety(patient.id, selectedSafetyDrugs);
       setSafetyResult(data);
+
+      const currentUser = api.authState.getUser();
+      const summary = summarizeSafetyResult(data);
+      addAuditLog({
+        doctor: currentUser?.name || currentUser?.username || "Doctor",
+        patientId: patient?.id,
+        patientName: patient?.name,
+        eventType: "DRUG_SAFETY_CHECK",
+        action: "Ran Drug Safety Check",
+        reason: `Checked ${selectedSafetyDrugs.length} drug(s): ${selectedSafetyDrugs.join(", ")}`,
+        severity: summary.severity,
+        confidence: summary.confidence,
+        details: {
+          checkedDrugs: selectedSafetyDrugs,
+          overallSafe: data?.overall_safe,
+          findings: (data?.results || []).map((result) => ({
+            newDrug: result?.new_drug,
+            isSafe: result?.is_safe,
+            analysis: (result?.analysis_results || []).map((item) => ({
+              currentMed: item?.current_med,
+              description: item?.result?.description,
+              severity: item?.result?.severity,
+              confidence: item?.result?.confidence ?? item?.result?.confidenceLevel,
+            })),
+          })),
+        },
+      });
     } catch (apiError) {
       setError(apiError?.message || "Safety check failed.");
     } finally {
@@ -547,6 +618,26 @@ function PatientCommandCenter({ patient: propPatient }) {
 
     try {
       await api.doctor.updateConsultation(selectedConsultationId, payload);
+
+      const currentUser = api.authState.getUser();
+      addAuditLog({
+        doctor: currentUser?.name || currentUser?.username || "Doctor",
+        patientId: patient?.id,
+        patientName: patient?.name,
+        eventType: "CONSULTATION_UPDATED",
+        action: "Updated Consultation",
+        reason: `Consultation #${selectedConsultationId} updated with risk ${consultationForm.riskLevel}`,
+        severity: consultationForm.riskLevel,
+        details: {
+          consultationId: selectedConsultationId,
+          purpose: consultationForm.purpose,
+          notes: consultationForm.notes,
+          riskLevel: consultationForm.riskLevel,
+          newDrugCount: newDrugs.length,
+          newDrugs,
+        },
+      });
+
       setMessage("Consultation finalized successfully.");
       await loadPatientDetails(patient?.id || id);
     } catch (apiError) {
@@ -572,6 +663,20 @@ function PatientCommandCenter({ patient: propPatient }) {
         reasonForAppointment: scheduleForm.reasonForAppointment,
         appointmentDateTime: toApiDateTime(scheduleForm.appointmentDateTime),
       });
+
+      const currentUser = api.authState.getUser();
+      addAuditLog({
+        doctor: currentUser?.name || currentUser?.username || "Doctor",
+        patientId: patient?.id,
+        patientName: patient?.name,
+        eventType: "APPOINTMENT_SCHEDULED",
+        action: "Scheduled Follow-up Appointment",
+        reason: scheduleForm.reasonForAppointment,
+        details: {
+          appointmentDateTime: toApiDateTime(scheduleForm.appointmentDateTime),
+        },
+      });
+
       setScheduleForm({ reasonForAppointment: "", appointmentDateTime: "" });
       setMessage("Follow-up appointment scheduled successfully.");
     } catch (apiError) {

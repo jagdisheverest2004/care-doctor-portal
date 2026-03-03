@@ -1,17 +1,78 @@
 import { motion } from "framer-motion";
-import { FiFilter, FiCalendar } from "react-icons/fi";
-import { useState } from "react";
-import { getAuditLogs } from "../data/mockData";
+import { FiFilter, FiCalendar, FiSearch } from "react-icons/fi";
+import { useMemo, useState } from "react";
+import { clearAuditLogs, getAuditLogs } from "../services/auditLog";
+
+const EVENT_TYPE_OPTIONS = [
+  { value: "all", label: "All Events" },
+  { value: "APPOINTMENT_ACCEPTED", label: "Appointment Accepted" },
+  { value: "APPOINTMENT_CANCELLED", label: "Appointment Cancelled" },
+  { value: "APPOINTMENT_SCHEDULED", label: "Appointment Scheduled" },
+  { value: "DRUG_SAFETY_CHECK", label: "Drug Safety Check" },
+  { value: "FILE_UPLOAD", label: "File Upload" },
+  { value: "CONSULTATION_UPDATED", label: "Consultation Updated" },
+];
+
+const SEVERITY_OPTIONS = ["ALL", "LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+function formatTimestamp(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function getActionColorClass(log) {
+  const actionValue = String(log?.action || "").toLowerCase();
+  const eventType = String(log?.eventType || "").toUpperCase();
+
+  if (eventType.includes("CANCEL") || actionValue.includes("cancel")) {
+    return "audit-action-label-danger";
+  }
+  if (eventType.includes("UPLOAD") || eventType.includes("SCHEDULE") || actionValue.includes("access")) {
+    return "audit-action-label-brand";
+  }
+  return "audit-action-label-warning";
+}
 
 function AuditLogsPage() {
-  const logs = getAuditLogs();
-  const [filterAction, setFilterAction] = useState("all");
+  const [logs, setLogs] = useState(() => getAuditLogs());
+  const [filterEventType, setFilterEventType] = useState("all");
+  const [filterSeverity, setFilterSeverity] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredLogs = logs.filter(
-    (log) =>
-      filterAction === "all" ||
-      log.action.toLowerCase().includes(filterAction.toLowerCase())
-  );
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const matchesEvent =
+        filterEventType === "all" ||
+        String(log?.eventType || "").toUpperCase() === filterEventType;
+
+      const matchesSeverity =
+        filterSeverity === "ALL" ||
+        String(log?.severity || "").toUpperCase() === filterSeverity;
+
+      const query = String(searchTerm || "").trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        [
+          log?.doctor,
+          log?.patientId,
+          log?.patientName,
+          log?.action,
+          log?.reason,
+          log?.eventType,
+        ]
+          .map((value) => String(value || "").toLowerCase())
+          .some((value) => value.includes(query));
+
+      return matchesEvent && matchesSeverity && matchesSearch;
+    });
+  }, [logs, filterEventType, filterSeverity, searchTerm]);
+
+  const handleClearLogs = () => {
+    clearAuditLogs();
+    setLogs([]);
+  };
 
   return (
     <>
@@ -33,18 +94,46 @@ function AuditLogsPage() {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          <FiFilter />
+        <div className="grid-3" style={{ gap: "12px", alignItems: "end" }}>
+          <div style={{ position: "relative" }}>
+            <FiSearch
+              style={{ position: "absolute", left: "12px", top: "12px", color: "#9ca3af" }}
+            />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search doctor, patient, action, reason..."
+              style={{ paddingLeft: "38px" }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <FiFilter />
+            <select
+              value={filterEventType}
+              onChange={(event) => setFilterEventType(event.target.value)}
+              style={{ flex: 1 }}
+            >
+              {EVENT_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
           <select
-            value={filterAction}
-            onChange={(e) => setFilterAction(e.target.value)}
-            style={{ flex: 1 }}
+            value={filterSeverity}
+            onChange={(event) => setFilterSeverity(event.target.value)}
           >
-            <option value="all">All Actions</option>
-            <option value="accessed">Accessed Patient Record</option>
-            <option value="override">Override Prescription</option>
-            <option value="modified">Modified Prescription</option>
+            {SEVERITY_OPTIONS.map((severity) => (
+              <option key={severity} value={severity}>Severity: {severity}</option>
+            ))}
           </select>
+        </div>
+
+        <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
+          <small style={{ color: "#94a3b8" }}>Showing {filteredLogs.length} of {logs.length} logs</small>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleClearLogs}>Clear Local Logs</button>
         </div>
       </motion.div>
 
@@ -64,44 +153,46 @@ function AuditLogsPage() {
                 <th>Patient</th>
                 <th>Action</th>
                 <th>Reason</th>
+                <th>Severity</th>
+                <th>Confidence</th>
                 <th>Timestamp</th>
-                <th>IP Address</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log, idx) => (
-                <tr key={idx}>
-                  <td>
-                    <strong>{log.doctor}</strong>
-                  </td>
-                  <td>
-                    <span className="token-chip token-chip-neutral">
-                      {log.patient}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      className={`audit-action-label ${
-                        log.action.includes("Override") || log.action.includes("Modified")
-                          ? "audit-action-label-danger"
-                          : "audit-action-label-brand"
-                      }`}
-                    >
-                      {log.action}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: "12px" }}>{log.reason}</td>
-                  <td style={{ fontSize: "12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <FiCalendar size={14} />
-                      {log.timestamp}
-                    </div>
-                  </td>
-                  <td style={{ fontSize: "11px", color: "#6b7280", fontFamily: "monospace" }}>
-                    {log.ipAddress}
+              {!filteredLogs.length ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", padding: "20px", color: "#94a3b8" }}>
+                    No audit logs found for current filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td>
+                      <strong>{log.doctor}</strong>
+                    </td>
+                    <td>
+                      <strong>{log.patientName || "--"}</strong>
+                    </td>
+                    <td>
+                      <span className={`audit-action-label ${getActionColorClass(log)}`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: "12px", maxWidth: "340px" }}>{log.reason}</td>
+                    <td>
+                      <span className="token-chip token-chip-neutral">{log.severity || "--"}</span>
+                    </td>
+                    <td>{log.confidence || "--"}</td>
+                    <td style={{ fontSize: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <FiCalendar size={14} />
+                        {formatTimestamp(log.createdAt)}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

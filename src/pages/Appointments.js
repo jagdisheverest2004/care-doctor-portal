@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FiSearch } from "react-icons/fi";
 import { api } from "../services/api";
+import { addAuditLog } from "../services/auditLog";
 
 const APPOINTMENT_STATUSES = ["ALL","SCHEDULED", "ACCEPTED", "COMPLETED", "CANCELLED"];
 
@@ -75,8 +76,27 @@ function Appointments() {
         setUpdatingId(appointmentId);
         setError("");
 
+        const appointment = appointments.find((item) => String(item.appointmentId) === String(appointmentId));
+
         try {
             await api.doctor.updateAppointmentStatus(appointmentId, nextStatus);
+
+            const currentUser = api.authState.getUser();
+            addAuditLog({
+                doctor: currentUser?.name || currentUser?.username || "Doctor",
+                patientId: appointment?.patientId,
+                patientName: appointment?.patientName,
+                eventType: nextStatus === "ACCEPTED" ? "APPOINTMENT_ACCEPTED" : "APPOINTMENT_CANCELLED",
+                action: nextStatus === "ACCEPTED" ? "Accepted Appointment" : "Cancelled Appointment",
+                reason: appointment?.reasonForAppointment || "Appointment status changed",
+                details: {
+                    appointmentId: appointment?.appointmentId,
+                    previousStatus: appointment?.appointmentStatus,
+                    newStatus: nextStatus,
+                    appointmentDateTime: appointment?.appointmentDateTime,
+                },
+            });
+
             await loadAppointments(status);
         } catch (apiError) {
             setError(apiError?.message || "Unable to update appointment status.");

@@ -1650,12 +1650,20 @@ body.dark-mode .token-chip-neutral {
     color: #2563eb;
 }
 
+.audit-action-label-warning {
+    color: #f59e0b;
+}
+
 body.dark-mode .audit-action-label-danger {
     color: #f87171;
 }
 
 body.dark-mode .audit-action-label-brand {
     color: #60a5fa;
+}
+
+body.dark-mode .audit-action-label-warning {
+    color: #fbbf24;
 }
 
 @media (max-width: 900px) {
