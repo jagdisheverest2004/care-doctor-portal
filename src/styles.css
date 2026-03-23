@@ -1551,6 +1551,11 @@ body.dark-mode .medical-records-control-group label {
 .medical-record-summary-row td {
     padding-top: 0;
     background: #f8fafc;
+    width: auto;
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 body.dark-mode .medical-record-summary-row td {
@@ -1565,7 +1570,7 @@ body.dark-mode .medical-record-summary-row td {
 }
 
 .record-summary-collapsible.open {
-    max-height: 3000px;
+    max-height: 10000px;
     opacity: 1;
 }
 
@@ -1573,6 +1578,7 @@ body.dark-mode .medical-record-summary-row td {
     padding: 10px 6px 12px;
     color: #334155;
     line-height: 1.5;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
 
